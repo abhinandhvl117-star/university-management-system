@@ -1,11 +1,15 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 
+class UserManager(BaseUserManager):
+    def create_user(self):
+        pass
 class User(AbstractUser):
     
     class Role(models.TextChoices):
         STUDENT = 'student', 'Student'
         TEACHER = 'teacher', 'Teacher'
+        ADMIN = 'admin', 'Admin'
     class ApprovalStatus(models.TextChoices):
         PENDING = 'pending', 'Pending'
         APPROVED = 'approved', 'Approved'
@@ -25,14 +29,15 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     
     USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name', 'last_name']
     
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
-    @staticmethod
-    def set_approval_status(id, role):
-        if role == 'Student':
-            status = 'approved'
+    def set_approval_status(self):
+        if self.role == 'student':
+            status = self.ApprovalStatus.APPROVED
         else:
-            status = 'pending'
+            status = self.ApprovalStatus.PENDING
 
+        self.approval_status = status
