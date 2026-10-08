@@ -63,3 +63,42 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+class Department(models.Model):
+    name = models.CharField(max_length=60, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+class Subject(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='subjects')
+    name = models.CharField(max_length=60)
+    
+    class Meta:
+        constraints =[
+            models.UniqueConstraint(
+                fields = ['department', 'name'],
+                name = 'name_must_be_unique_per_department'
+            )
+        ]
+        
+    def __str__(self):
+        return f'{self.department} - {self.name}'
+
+class ClassGroup(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='Classes')
+    name = models.CharField(max_length=50)
+    academic_year = models.CharField(max_length=20)
+
+    class Meta:
+        verbose_name = 'class'
+        verbose_name_plural = 'classes'
+        
+        constraints = [
+            models.UniqueConstraint(
+                fields = ['department', 'name', 'academic_year'],
+                name = 'unique_class_per_department_year'
+            )
+        ]
+        
+    def __str__(self):
+        return f'{self.name } {self.academic_year}'
