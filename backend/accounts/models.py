@@ -2,8 +2,35 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
 class UserManager(BaseUserManager):
-    def create_user(self):
-        pass
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('Email is required')
+        
+        role = extra_fields.get('role', None) 
+        if role is None:
+            raise ValueError('Role is required')
+        if role not in self.model.Role.values:
+            raise ValueError(f'Invalid role {role}')
+        
+        if role == self.model.Role.TEACHER:
+            approval = self.model.ApprovalStatus.PENDING
+        else:
+            approval = self.model.ApprovalStatus.APPROVED
+            
+        email = self.normalize_email(email).lower()
+        extra_fields.setdefault('approval_status', approval)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+    
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', self.model.Role.ADMIN)
+        extra_fields.setdefault('approval_status', self.model.ApprovalStatus.APPROVED)
+        extra_fields.setdefault('account_status', self.model.AccountStatus.ACTIVE)
+        return self.create_user(email, password, **extra_fields)
 class User(AbstractUser):
     
     class Role(models.TextChoices):
@@ -28,16 +55,11 @@ class User(AbstractUser):
     account_status = models.CharField(max_length=20, choices=AccountStatus.choices, default=AccountStatus.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    objects = UserManager()
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
     
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
-    def set_approval_status(self):
-        if self.role == 'student':
-            status = self.ApprovalStatus.APPROVED
-        else:
-            status = self.ApprovalStatus.PENDING
-
-        self.approval_status = status
