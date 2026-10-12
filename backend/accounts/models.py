@@ -102,3 +102,18 @@ class ClassGroup(models.Model):
         
     def __str__(self):
         return f'{self.name } {self.academic_year}'
+    
+class StudentProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.PROTECT)
+    student_id = models.CharField(max_length=10, unique=True)
+    
+    def __str__(self):
+        first_name, last_name = self.user.first_name, self.user.last_name
+        full_name = f"{first_name} {last_name}"
+        return f"{full_name.strip()}. Student ID - {self.student_id}"
+        
+    
+
+class TeacherProfile(models.Model):
+    pass
+
