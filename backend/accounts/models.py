@@ -28,9 +28,10 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('role', self.model.Role.ADMIN)
-        extra_fields.setdefault('approval_status', self.model.ApprovalStatus.APPROVED)
+        extra_fields.setdefault('approval_status', self.model.ApprovalStatus.PENDING)
         extra_fields.setdefault('account_status', self.model.AccountStatus.ACTIVE)
         return self.create_user(email, password, **extra_fields)
+    
 class User(AbstractUser):
     
     class Role(models.TextChoices):
@@ -47,11 +48,11 @@ class User(AbstractUser):
         DISABLED = 'disabled', 'Disabled'
         
     username = None
-    first_name = models.CharField(max_length=50, blank=False)
-    last_name = models.CharField(max_length=50, blank=False)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20, choices=Role.choices, blank=False)
-    approval_status = models.CharField(max_length=20, choices=ApprovalStatus.choices)
+    role = models.CharField(max_length=20, choices=Role.choices, blank=False,)
+    approval_status = models.CharField(max_length=20, choices=ApprovalStatus.choices,  default=ApprovalStatus.PENDING)
     account_status = models.CharField(max_length=20, choices=AccountStatus.choices, default=AccountStatus.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -85,7 +86,7 @@ class Subject(models.Model):
         return f'{self.department} - {self.name}'
 
 class ClassGroup(models.Model):
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='Classes')
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='classes')
     name = models.CharField(max_length=50)
     academic_year = models.CharField(max_length=20)
 
@@ -101,19 +102,38 @@ class ClassGroup(models.Model):
         ]
         
     def __str__(self):
-        return f'{self.name } {self.academic_year}'
+        return f'name: {self.name }, year: {self.academic_year}, department: {self.department}'
     
 class StudentProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.PROTECT)
-    student_id = models.CharField(max_length=10, unique=True)
+    user = models.OneToOneField(User, on_delete=models.PROTECT, related_name='studentprofile')
+    student_id = models.CharField(max_length=10, unique=True, null=True, blank=True)
     
     def __str__(self):
-        first_name, last_name = self.user.first_name, self.user.last_name
-        full_name = f"{first_name} {last_name}"
-        return f"{full_name.strip()}. Student ID - {self.student_id}"
-        
-    
-
+        return f"{str(self.user)}. Student ID - {self.student_id}"
+          
 class TeacherProfile(models.Model):
-    pass
-
+    user = models.OneToOneField(User, on_delete=models.PROTECT, related_name='teacherprofile')
+    staff_id = models.CharField(max_length=10, unique=True)
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='teachers')
+    
+    def __str__(self):
+        return f"{str(self.user)}. Staff ID - {self.staff_id}"
+    
+class Enrollment(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.PROTECT, related_name='enrollment')
+    classgroup = models.ForeignKey(ClassGroup, on_delete=models.PROTECT, related_name='enrollment')
+    roll_no = models.IntegerField()
+    is_active = models.BooleanField(default=True)
+    
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student', 'classgroup'],
+                name='a_student_cant_enroll_a_class_twice'
+            ),
+            models.UniqueConstraint(
+                fields=['student', 'roll_no', 'classgroup'],
+                name='a_student_cant_have_the_same_roll_no_on_a_same_class'
+            )
+        ]
